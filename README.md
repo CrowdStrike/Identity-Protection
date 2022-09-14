@@ -7,7 +7,7 @@
 
 
 This repository contains scripts and utilities for working with Crowdstrike Identity Protection. 
-+ [Identity Protection Licensing Script](https://github.com/CrowdStrike/Identity-Protection/tree/main/Identity%20Protection%20Licensing%20Script)
++ [Identity Protection Licensing Script](https://github.com/CrowdStrike/Identity-Protection/tree/main/Licensing)
 
 
 <p align="center"><img src="https://raw.githubusercontent.com/CrowdStrike/falconpy/main/docs/asset/cs-logo-footer.png"><BR/><img width="250px" src="https://raw.githubusercontent.com/CrowdStrike/falconpy/main/docs/asset/adversary-red-eyes.png"></P>
