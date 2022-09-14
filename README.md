@@ -7,7 +7,8 @@
 
 
 This repository contains scripts and utilities for working with Crowdstrike Identity Protection. 
-+ [Overview](#Identity Protection Licensing Script-)
++ [Overview](#Identity-Protection-Licensing-Script-)
+
 
 
 ## Identity Protection Licensing Script 
