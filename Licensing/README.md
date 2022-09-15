@@ -41,7 +41,7 @@ Script checks this before it runs.
 `set-executionpolicy unrestricted`
 
 ## Troubleshooting
-A file called `cs_script_output.txt` will be created when you run the script, so if the customer has any issues you can obtain that file and send to your local Identity Protection SME.
+A file called `cs_script_output.txt` will be created when you run the script, so if you have any issues you can obtain that file and send to your Crowdstrike representative for support. 
 
 The script will automatically install the required Powershell modules (AzureADPreview & ActiveDirectory) if not already installed on the machine.
 
