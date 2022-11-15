@@ -47,8 +47,7 @@ User Permissions:
 
 ### Notes
 
-Disk Information (Drive Letters, Free and Used) is outputted as an array when the machine has more than one disk. In this scenario, the information is added under a single cell per row, however the values for each drive are separated with a new line. So expand the cell in excel and it is easy to read.\\
-
+Disk Information (Drive Letters, Free and Used) is outputted as an array when the machine has more than one disk. In this scenario, the information is added under a single cell per row, however the values for each drive are separated with a new line. So expand the cell in excel and it is easy to read.
 
 <p align="center"><img src="https://raw.githubusercontent.com/CrowdStrike/falconpy/main/docs/asset/cs-logo-footer.png"><BR/><img width="250px" src="https://raw.githubusercontent.com/CrowdStrike/falconpy/main/docs/asset/adversary-red-eyes.png"></P>
 <h3><P align="center">WE STOP BREACHES</P></h3>
