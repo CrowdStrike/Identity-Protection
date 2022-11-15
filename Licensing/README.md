@@ -29,9 +29,9 @@ User Permissions:
 Script checks this before it runs. 
 
 * If you will be adding in your Azure tenant to Falcon Identity, this script will prompt for your Azure credentials and obtain the total count for active accounts that live in Azure only (not domain synchronized)
-* If you havea single forest, with a single domain, yourun it once.
-* If you havea single forest, with multiple domains, youcan run it once and the entire forest will be covered.
-* If you havemultiple forests, you should run the script once per-forest, as described above.
+* If you havea single forest, with a single domain, you run it once.
+* If you havea single forest, with multiple domains, you can run it once and the entire forest will be covered.
+* If you have multiple forests, you should run the script once per-forest, as described above.
 
 ## Running the Script
 * Download a copy of the latest PowerShell .ps1 script.
@@ -41,7 +41,7 @@ Script checks this before it runs.
 `set-executionpolicy unrestricted`
 
 ## Troubleshooting
-A file called `cs_script_output.txt` will be created when you run the script, so if the customer has any issues you can obtain that file and send to your local Identity Protection SME.
+A file called `cs_script_output.txt` will be created when you run the script, so if you have any issues you can obtain that file and send to your Crowdstrike representative for support. 
 
 The script will automatically install the required Powershell modules (AzureADPreview & ActiveDirectory) if not already installed on the machine.
 
