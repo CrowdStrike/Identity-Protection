@@ -1,0 +1,14 @@
+Hostname,GlobalCatalog,Site,Forest,OperationMasterRoles,DriveLetters,DiskFree,DiskUsed
+DC.lab.int,TRUE,Default-First-Site-Name,lab.int,"SchemaMaster
+DomainNamingMaster
+PDCEmulator
+RIDMaster
+InfrastructureMaster",C,15459368960,37648904192
+dcd.demo.lab,TRUE,Default-First-Site-Name,demo.lab,"SchemaMaster
+DomainNamingMaster
+PDCEmulator
+RIDMaster
+InfrastructureMaster","C
+E","14652375040
+5336354816","19129593856
+29204480"
