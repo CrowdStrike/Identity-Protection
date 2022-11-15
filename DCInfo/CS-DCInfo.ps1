@@ -15,7 +15,7 @@
 ### OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ### SOFTWARE.
 
-    #### v1.1 - 14th September 2022
+    #### v1.1 - 15th November 2022
 
 
     $hostname = [System.Net.Dns]::GetHostByName($env:computerName) | Select-Object -ExpandProperty HostName
