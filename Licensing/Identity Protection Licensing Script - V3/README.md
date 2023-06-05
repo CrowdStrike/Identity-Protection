@@ -27,7 +27,7 @@ User Permissions:
 * Active Directory: Domain User Account
 * Local Admin is ONLY required if you are running on a member server and ActiveDirectory tools are not installed (script will handle this error case and inform you). 
 
-
+Guidance:
 * If you will be adding in your Azure tenant to Falcon Identity, this script will prompt for your Azure credentials and obtain the total count for active accounts that live in Azure only (not domain synchronized)
 * If you havea single forest, with a single domain, you run it once.
 * If you havea single forest, with multiple domains, you can run it once and the entire forest will be covered.
