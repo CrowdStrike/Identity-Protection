@@ -22,7 +22,7 @@ Domain Requirements:
 * To collect information from AD, the machine MUST be domain joined. 
 * The script will run on a non-domain joined (workgroup) machine however it will ONLY count users from AzureAD (so appropriate if the customer doesnt have on-prem AD). 
 
-User Permissions:
+User Permissions :
 * Local Admin only (to install Powershell modules). 
 * AzureAD global admin - technically this could run with an account with more specific permissions but for the sake of running the script with as little friction as possible, request the global admin account. 
 
