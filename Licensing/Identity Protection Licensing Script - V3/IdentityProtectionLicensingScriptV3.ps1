@@ -16,9 +16,11 @@
 ### SOFTWARE.
 
 
-    #### v3.0 - 5th June 2023
+    #### v3.1 - 22nd June 2023
 
-    Write-Host "#### Identity Protection Licensing Script v3 #### " -ForegroundColor Blue
+    $scriptv = "3.1"
+
+    Write-Host "#### Identity Protection Licensing Script $scriptv #### " -ForegroundColor Blue
 
     Write-Host "`n#### Prerequisite Check #### " -ForegroundColor Blue
 
@@ -50,17 +52,17 @@
     $global:osName = (Get-CimInstance -ClassName Win32_OperatingSystem).name
 
     if ($osInfo.ProductType -eq 1) {
-        $capability = "AzureADOnly"
-        write-host "`n- !!### WARNING ###!!`n`nThis is a client operating system which means the script can only count active AzureAD users. To count users from Active Directory or to obtain sizing information, please re-run the script on a domain-joined, server operating system.`n`nPress any key to continue...or CTRL+C to exit" -ForegroundColor Yellow
+        $global:capability = "AzureADOnly"
+        write-host "`n- !!### WARNING ###!!`n`nThis is a client operating system which means the script can only accurately count active AzureAD users. Whilst an estimation will be provided for Active Directory based on the number of hybrid accounts, to count users from Active Directory or to obtain sizing information, please re-run the script on a domain-joined, server operating system.`n`nPress any key to continue...or CTRL+C to exit" -ForegroundColor Yellow
         $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown') | out-null
     }
     elseif ([string]::IsNullOrEmpty($env:USERDNSDomain)) {
-        $capability = "AzureADOnly"
-        write-host "`n- !!### WARNING ###!!`n`nThis machine is not domain joined which means the script can only count active AzureAD users. To count users from Active Directory or to obtain sizing information, please re-run the script on a domain-joined, server operating system.`n`nPress any key to continue...or CTRL+C to exit" -ForegroundColor Yellow 
+        $global:capability = "AzureADOnly"
+        write-host "`n- !!### WARNING ###!!`n`nThis machine is not domain joined which means the script can only accurately count active AzureAD users. Whilst an estimation will be provided for Active Directory based on the number of hybrid accounts, to count users from Active Directory or to obtain sizing information, please re-run the script on a domain-joined, server operating system.`n`nPress any key to continue...or CTRL+C to exit" -ForegroundColor Yellow 
         $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown') | out-null
     }
     else {
-        $capability = "any"
+        $global:capability = "any"
         write-host "`n- Prerequisites check complete...`n`n" -ForegroundColor Green
     }
     
@@ -126,6 +128,24 @@
 
             
     
+        }
+
+            function onPremDelta {
+    
+            ### If Table Exists, Delete ###
+    
+            if ([string]::IsNullOrEmpty($EntityCountTable)) {
+            }
+    
+            else {
+                Write-host "Table Exists for onPremDelta Count from previous run...Clearing Data..." -ForegroundColor Yellow
+                $EntityCountTable.Clear()
+            }
+    
+            ### Create Table ###
+    
+            $global:onPremDelta = New-Object system.Data.DataTable 'APIOutput'
+            $newcol = New-Object system.Data.DataColumn 'objectGUID',([string]); $onPremDelta.columns.add($newcol)
         }
     
         ### Find Active Azure AD Users ###
@@ -193,7 +213,7 @@
 
 
             if (Get-Module -ListAvailable -Name microsoft.graph.users) {
-                write-host "`n`n`n- The Microsoft Graph users module is already installed on this system. Continuing..."
+                write-host "`n- The Microsoft Graph users module is already installed on this system. Continuing..."
             }
             else {
                 try {
@@ -210,7 +230,7 @@
             }
             
             if (Get-Module -ListAvailable -Name Microsoft.Graph.Identity.DirectoryManagement) {
-                write-host "`n`n`n- The Microsoft Graph Directory module is already installed on this system. Continuing..."
+                write-host "`n- The Microsoft Graph Directory module is already installed on this system. Continuing..."
             }
             else {
                 try {
@@ -248,7 +268,7 @@
 
             ##### Count Active AzureAD Users #####
 
-            $AzureDomainName = Get-MgOrganization | select-object -expandproperty DisplayName -ErrorAction silentlyContinue
+            $global:AzureDomainName = Get-MgOrganization | select-object -expandproperty DisplayName -ErrorAction silentlyContinue
 
             if (-not($AzureDomainName)) {
                 $AzureDomainName = "Unknown"
@@ -257,26 +277,59 @@
             else {}
 
             Write-Host "`n#### Counting Active AzureAD Users ####" -ForegroundColor Blue
-            $activeAzureADusers = $null
+            $getAzureADusers = $null
+            $nativeAzureADusers = $null
+            $hybridAzureADUsers = $null
+            $userDecoded = $null
             $DateStr = (Get-Date).AddDays(-90)
             $getpast90days = $DateStr.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
 
-            $activeAzureADusers = (Get-MgUser -All -select accountEnabled,onPremisesUserPrincipalName,UserPrincipalName -Filter "SignInActivity/lastSignInDateTime ge $getpast90days" | where-object { $_.onPremisesUserPrincipalName -eq $null -and $_.accountEnabled -eq $true }  | Select-Object UserPrincipalName).count
+            $getAzureADusers = Get-MgUser -All -select accountEnabled,OnPremisesImmutableId,UserPrincipalName -Filter "SignInActivity/lastSignInDateTime ge $getpast90days"
 
-            if ($activeAzureADusers) {
-                Write-host "`n- Active AzureAD Users obtained for `"$AzureDomainName`" - ($activeAzureADusers). Updating Table..." -ForegroundColor Green
+            Write-host "`n- Combined Active AzureAD Users obtained for `"$AzureDomainName`". Splitting into Native vs Hybrid.." -ForegroundColor Green
+
+            $nativeAzureADusers = ($getAzureADusers | where-object { $_.OnPremisesImmutableId -eq $null -and $_.accountEnabled -eq $true }  | Select-Object UserPrincipalName).count
+
+            $hybridAzureADUsers = ($getAzureADusers | where-object { $_.OnPremisesImmutableId -and $_.accountEnabled -eq $true }).count
+            $hybridAzureADUsersobjectGUID = $getAzureADusers | where-object { $_.OnPremisesImmutableId -and $_.accountEnabled -eq $true } | select-object OnPremisesImmutableId
+
+            if ($nativeAzureADusers) {
+                Write-host "`n- Active AzureAD Users (Native) obtained for `"$AzureDomainName`" - ($nativeAzureADusers). Updating Table..." -ForegroundColor Green
             }
             else {
-                $activeAzureADusers = "0"
-                write-host "Unable to determine number of active AzureAD users. Setting to 0" -ForegroundColor Yellow
+                $nativeAzureADusers = "0"
+                write-host "Unable to determine number of active AzureAD users (Native). Setting to 0" -ForegroundColor Yellow
             }
     
             $row = $ActiveUsersTable.NewRow()
-            $row.'Domain' = $AzureDomainName
+            $row.'Domain' = $AzureDomainName + " (Native)"
             $row.'DC'= "N/A - AzureAD"
-            $row.'IDP Licensing: Active Users' = $activeAzureADusers
-
+            $row.'IDP Licensing: Active Users' = $nativeAzureADusers
             $ActiveUsersTable.Rows.Add($row)
+
+            Write-Host "`n#### Counting Active AzureAD Users (Hybrid) ####" -ForegroundColor Blue
+
+            if ($hybridAzureADUsers) {
+                Write-host "`n- Active AzureAD Users (Hybrid) obtained for `"$AzureDomainName`" - ($hybridAzureADUsers)." -ForegroundColor Green
+                
+                foreach ($i in $hybridAzureADUsersobjectGUID) {
+                    $user = $i.OnPremisesImmutableId
+                    $userDecoded = [Guid]([Convert]::FromBase64String("$user"))
+
+                        if ($userDecoded) {
+                        $row = $onPremDelta.NewRow()
+                        $row.'objectGUID' = $userDecoded
+                        $onPremDelta.Rows.Add($row)
+                        }
+                        else {
+                            Write-host "`n- Unable to decode $user" -ForegroundColor Red
+                        }
+                }
+            }
+            else {
+                $hybridAzureADUsers = "0"
+                write-host "Unable to determine number of active Hybrid AzureAD users. Setting to 0" -ForegroundColor Yellow
+            }
     
             ### Re-enable Internet Explorer Enhanced Security ###
     
@@ -399,14 +452,31 @@
                     $DC = $row.'DC'
                     $domain = $row.'Domain'
                     $DCconnection = $row.'Successful Connection?'
+                    $objectGUID = $null
+                    $getADUsers = $null
 
                     if ($DCconnection -eq 'True') {
 
-                    $ActiveUsers = (Get-ADUser -server $DC -filter * -properties LastLogonDate,Enabled -ErrorAction continue | Where-Object {$_.lastlogondate -ge (get-date).adddays(-90) -and $_.enabled -eq "True"} | Measure-Object).count
-                    
-                    $ActiveUsersTable | where {$_.DC -eq $DC} | foreach {$_.'IDP Licensing: Active Users' = "$ActiveUsers"}
+                    $getADUsers = Get-ADUser -server $DC -filter * -properties LastLogonDate,Enabled,objectGUID -ErrorAction continue | Where-Object {$_.lastlogondate -ge (get-date).adddays(-90) -and $_.enabled -eq "True"} | select-object objectGUID
 
-                    Write-host "`n- Active AD Users obtained for `"$domain`" - ($ActiveUsers). Updating Table..." -ForegroundColor Green
+                    $ActiveUsers = ($getADUsers | select-object objectGUID | measure-object).count
+
+                    if ($getADUsers) {
+                        Write-host "`n- Active AD Users obtained for `"$domain`" - ($ActiveUsers). Updating Table..." -ForegroundColor Green
+                        $ActiveUsersTable | where {$_.DC -eq $DC} | foreach {$_.'IDP Licensing: Active Users' = "$ActiveUsers"}
+                        foreach ($i in $getADUsers) {
+                            $objectGUID = $i.objectGUID
+                                if ($objectGUID) {
+                                $row = $onPremDelta.NewRow()
+                                $row.'objectGUID' = $objectGUID
+                                $onPremDelta.Rows.Add($row)
+                                }
+                                else {
+                                    Write-host "`n- Unable to add objectGUID to table" -ForegroundColor Red
+                                }
+                        }
+
+                    }
 
                     }
                     else {
@@ -487,7 +557,46 @@
     
         function get-totalUsers {
     
-        $totalActiveUsers = ($ActiveUsersTable | where-object {$_.'IDP Licensing: Active Users' -ne "N/A - Connect Error"}  | Measure-Object 'IDP Licensing: Active Users' -Sum).Sum
+        if ($capability -eq 'AzureADOnly' -AND $onPremDelta) {
+            Write-host "`n- Found hybrid accounts in AzureAD. Adding number to table as estimate (recommend running from domain joined machine for accurate number)." -ForegroundColor yellow
+            $estimatedOnPrem = ($onPremDelta | Select-Object -ExpandProperty objectGUID).count
+            if ($estimatedOnPrem) {
+                $row = $ActiveUsersTable.NewRow()
+                $row.'Domain' = "Estimated On-Prem AD Users"
+                $row.'DC' = "N/A - Determined from AzureAD Hybrid User Count"
+                $row.'IDP Licensing: Active Users' = $estimatedOnPrem
+                $ActiveUsersTable.Rows.Add($row)
+            }
+            else {
+                Write-host "`n- Unable to add estimated on-prem AD accounts to the table." -ForegroundColor yellow
+
+            }
+        }
+        else {
+        }
+
+        $totalActiveUsersRaw = ($ActiveUsersTable | where-object {$_.'IDP Licensing: Active Users' -ne "N/A - Connect Error"}  | Measure-Object 'IDP Licensing: Active Users' -Sum).Sum
+
+        $getDuplicates = $onPremDelta | Select-Object -ExpandProperty objectGUID
+        $duplicateOnPremusers = ($getDuplicates | group-object | Where-Object -FilterScript { $_.Count -gt 1 }).count
+
+        if ($duplicateOnPremusers) {
+        Write-host "`n- Found the same accounts with recent activity in both AzureAD and AD, will deduct duplicates from total." -ForegroundColor yellow
+        $row = $ActiveUsersTable.NewRow()
+        $row.'Domain' = "Duplicates (Will be deducted)"
+        $row.'DC' = "N/A"
+        $row.'Successful Connection?' = "N/A"
+        $row.'IDP Licensing: Active Users' = $duplicateOnPremusers
+        $ActiveUsersTable.Rows.Add($row)
+        }
+
+        else {
+            $duplicateOnPremusers = "0"
+            Write-host "`n- No accounts with recent activity in both AzureAD and AD. Will not change totals." -ForegroundColor yellow
+        }
+
+        $totalActiveUsers = $totalActiveUsersRaw - $duplicateOnPremusers
+
     
         $row = $ActiveUsersTable.NewRow()
         $row.'Domain' = "FOREST TOTALS"
@@ -518,12 +627,18 @@
 ### Create Output Tables ###
 createActiveUsersTable
 createEntityCountTable
+onPremDelta
     
 if ($capability -eq 'AzureADOnly') {
     get-Azure
     get-totalUsers
     Write-Host "`n#### IDENTITY PROTECTION LICENSING QUOTE: TOTAL ACTIVE USERS ####`nThis information should be provided to Crowdstrike in order to provide an indicative cost of the solution. " -ForegroundColor GREEN
     $ActiveUsersTable | format-table
+
+    if ($onPremDelta) {
+    Write-host "`n- NOTE: The script has estimated the number of on-prem AD users based on the number of hybrid accounts found in AzureAD. We recommend running this script from a domain joined machine for accurate number to include service accounts and other accounts that are not synchronised via AzureAD connect.`n`n" -ForegroundColor yellow
+    }
+    else {}
 }
 else {
 
