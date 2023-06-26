@@ -24,8 +24,8 @@ User Permissions:
 * AzureAD: Account with permission to obtain scopes "User.Read.All" and "AuditLog.Read.All"
 * Active Directory: Domain User Account
 * Running the script as administrator is ONLY required if you are running on:
-- member server and ActiveDirectory tools are not installed OR
-- domain controller
+ - member server and ActiveDirectory tools are not installed OR
+ - domain controller
 Note: The script will handle these error cases and inform you.  
 
 Guidance:
