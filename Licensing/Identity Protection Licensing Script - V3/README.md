@@ -23,10 +23,7 @@ Host Requirements:
 User Permissions:
 * AzureAD: Account with permission to obtain scopes "User.Read.All" and "AuditLog.Read.All"
 * Active Directory: Domain User Account
-* Running the script as administrator is ONLY required if you are running on:
- - member server and ActiveDirectory tools are not installed OR
- - domain controller
-Note: The script will handle these error cases and inform you.  
+* Running the script as administrator: ONLY required if you are running on a member server and ActiveDirectory tools are not installed OR from a domain controller. The script will handle these scenarios and inform you.  
 
 Guidance:
 * If you will be adding your Azure tenant to Falcon Identity, this script will prompt for your Azure credentials and count both native and hybrid accounts. If you run the script from a AD domain-joined machine and obtains on-prem AD users too, the script ensures that hybrid users are not counted twice and adjusts the final total by removing duplicates. 
