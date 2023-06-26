@@ -15,32 +15,45 @@
 ### OUT  OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ### SOFTWARE.
 
+    #### Get Script Location ####
+    $BundleLocation = $PSScriptRoot
 
-    #### v3.1 - 22nd June 2023
+    if (-not($BundleLocation)) {
+        $BundleLocation = $pwd.path
+    }
+    else {}
+    
+    #### Log Output ####
+    # Stop if running
+    $ErrorActionPreference="SilentlyContinue"
+    Stop-Transcript | out-null
+    
+    # Start
+    $ErrorActionPreference = "Continue"
+    Start-Transcript -path "$BundleLocation\cs_script_output.txt" | out-null
+    $output = "$BundleLocation\cs_script_output.txt"
 
-    $scriptv = "3.1"
+    $scriptv = "3.2"
 
     Write-Host "#### Identity Protection Licensing Script $scriptv #### " -ForegroundColor Blue
 
     Write-Host "`n#### Prerequisite Check #### " -ForegroundColor Blue
-
-    write-host "- Checking Script is running as administrator..." -ForegroundColor Yellow
     
     $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
     $isadmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
-    #### Check Powershell Version ####
+    write-host "- Script is running in admin context: `"$isadmin`"" -ForegroundColor Yellow
 
-    write-host "- Checking Powershell Version..." -ForegroundColor Yellow
+    #### Check Powershell Version ####
     
     $PSversion = $PSVersionTable.PSVersion.Major
-    write-host "- Powershell version is `"$PSversion`"..." -ForegroundColor Yellow
+    write-host "- Powershell version: `"$PSversion`"" -ForegroundColor Yellow
 
     if ($PSversion -lt '5') {
         throw "- Powershell version is $PSVersion which is not supported. Please run the script on a machine running Powershell 5."
     }
     elseif ($PSversion -eq '7') {
-        write-host "- Powershell version is $PSVersion, switching to Version 5. Please re-run the script at the next prompt...`n`n" -ForegroundColor Red 
+        write-host "- Powershell version is $PSVersion, switching to Version 5. Please re-run the script at the next prompt. Switching to v5.`n`n" -ForegroundColor Red 
         powershell -Version 5
         exit
     }
@@ -65,20 +78,6 @@
         $global:capability = "any"
         write-host "`n- Prerequisites check complete...`n`n" -ForegroundColor Green
     }
-    
-    
-    #### Get Script Location ####
-    $BundleLocation = $PSScriptRoot
-    
-    #### Log Output ####
-    # Stop if running
-    $ErrorActionPreference="SilentlyContinue"
-    Stop-Transcript | out-null
-    
-    # Start
-    $ErrorActionPreference = "Continue"
-    Start-Transcript -path "$BundleLocation\cs_script_output.txt" | out-null
-    $output = "$BundleLocation\cs_script_output.txt"
     
     ##### FUNCTIONS ######
     
@@ -208,12 +207,53 @@
 
             #### Installing Microsoft Graph Module ####
 
-            Write-Host "`n#### Installing Powershell Module for Microsoft Graph #### " -ForegroundColor Blue
+            Write-Host "`n#### Installing Powershell Modules for Microsoft Graph #### " -ForegroundColor Blue
+
+
+            if (Get-Module -ListAvailable -Name microsoft.graph.authentication) {
+                write-host "`n- The Microsoft Graph authentication module is already installed on this system. Continuing..." -ForegroundColor green
+                try {
+                        Write-host "- Importing Microsoft Graph Authentication Module..." -ForegroundColor Yellow
+                        Import-Module microsoft.graph.Authentication -ErrorAction stop
+                }
+                catch {
+                    $lasterror = $error[0].Exception | Select-Object Message
+                    Get-module -ListAvailable
+                    throw "- Unable to import the Microsoft Graph Authentication Powershell module. Review errors above or in the $output file."
+                }
+                        
+            }
+            else {
+                try {
+                        $error.clear()
+                        Write-Host "- Downloading & Installing Microsoft Graph Authentication Module..." -ForegroundColor Yellow
+                        Install-Module microsoft.graph.Authentication -Scope CurrentUser -Allowclobber -Force -ErrorAction stop -Verbose
+                        Write-host "- Importing Microsoft Graph Authentication Module..." -ForegroundColor Yellow
+                        Import-Module microsoft.graph.Authentication -ErrorAction stop
+                    }
+                    catch {
+                        $lasterror = $error[0].Exception | Select-Object Message
+                        Get-module -ListAvailable
+                        throw "- Unable to install the Microsoft Graph Authentication Module. Review errors above or in the $output file."
+                    }
+            }
 
 
 
             if (Get-Module -ListAvailable -Name microsoft.graph.users) {
-                write-host "`n- The Microsoft Graph users module is already installed on this system. Continuing..."
+                write-host "`n- The Microsoft Graph users module is already installed on this system. Continuing..." -ForegroundColor green
+                try {
+                        Write-host "- Importing Microsoft Graph Users Module..." -ForegroundColor Yellow
+                        Import-Module microsoft.graph.users -ErrorAction stop
+                }
+                catch {
+                    $lasterror = $error[0].Exception | Select-Object Message
+                    Get-module -ListAvailable
+                    throw "- Unable to import the Microsoft Graph Powershell modules. Review errors above or in the $output file."
+                }
+                
+
+                        
             }
             else {
                 try {
@@ -225,12 +265,22 @@
                     }
                     catch {
                         $lasterror = $error[0].Exception | Select-Object Message
-                        throw "- Unable to install the Microsoft Graph Users Module module. Review errors above or in the $output file."
+                        Get-module -ListAvailable
+                        throw "- Unable to install the Microsoft Graph Users Module. Review errors above or in the $output file."
                     }
             }
             
             if (Get-Module -ListAvailable -Name Microsoft.Graph.Identity.DirectoryManagement) {
-                write-host "`n- The Microsoft Graph Directory module is already installed on this system. Continuing..."
+                write-host "`n- The Microsoft Graph Directory module is already installed on this system. Continuing..." -ForegroundColor green
+                try {
+                        Write-host "- Importing Microsoft Graph DirectoryManagement Module..." -ForegroundColor Yellow
+                        Import-Module Microsoft.Graph.Identity.DirectoryManagement -ErrorAction stop
+                }
+                catch {
+                    $lasterror = $error[0].Exception | Select-Object Message
+                    Get-module -ListAvailable
+                    throw "- Unable to import the Microsoft Graph DirectoryManagement Powershell module. Review errors above or in the $output file."
+                }
             }
             else {
                 try {
@@ -242,6 +292,7 @@
                     }
                     catch {
                         $lasterror = $error[0].Exception | Select-Object Message
+                        Get-module -ListAvailable
                         throw "- Unable to install the Microsoft Graph Directory Module module. Review errors above or in the $output file."
                     }
             }
@@ -254,7 +305,7 @@
                 $error.clear()
                 Connect-MgGraph -Scopes 'User.Read.All,AuditLog.Read.All' | out-null -ErrorAction stop | out-null
                 if (get-mgcontext) {
-                    Write-Host "- Connected to Microsoft Graph..." -ForegroundColor Yellow
+                    Write-Host "- Connected to Microsoft Graph..." -ForegroundColor Green
                 }
                 else {
                     throw "- Authenticating to Microsoft Graph Failed. Please observe any errors and re-run the script"
@@ -370,6 +421,11 @@
                 
                 Write-host "`n- Successfully installed ActiveDirectory Powershell Module..." -ForegroundColor Green
                 }
+
+                if ($isadmin -eq $false) {
+                    throw "`n- Please re-run the script as administrator. On a domain controller, you must run as administrator to have visibility of all accounts."
+                }
+                else {}
     
             }
             elseif ($osInfo.ProductType -eq "3"){
@@ -592,14 +648,18 @@
 
         else {
             $duplicateOnPremusers = "0"
+            if ($capability -eq'AzureADOnly')
+            {}
+            else {
             Write-host "`n- No accounts with recent activity in both AzureAD and AD. Will not change totals." -ForegroundColor yellow
+            }
         }
 
         $totalActiveUsers = $totalActiveUsersRaw - $duplicateOnPremusers
 
     
         $row = $ActiveUsersTable.NewRow()
-        $row.'Domain' = "FOREST TOTALS"
+        $row.'Domain' = "TOTAL"
         $row.'IDP Licensing: Active Users' = $totalActiveUsers
         $ActiveUsersTable.Rows.Add($row)
     
