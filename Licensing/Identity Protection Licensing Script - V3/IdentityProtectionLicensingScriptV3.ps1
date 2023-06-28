@@ -15,6 +15,14 @@
 ### OUT  OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ### SOFTWARE.
 
+    ### Set Global Variables ###
+
+    $global:getAzureADusers = $null
+    $global:nativeAzureADusers = $null
+    $global:hybridAzureADUsers = $null
+    $global:userDecoded = $null
+    $global:failures = $null
+
     #### Get Script Location ####
     $BundleLocation = $PSScriptRoot
 
@@ -33,7 +41,7 @@
     Start-Transcript -path "$BundleLocation\cs_script_output.txt" | out-null
     $output = "$BundleLocation\cs_script_output.txt"
 
-    $scriptv = "3.3"
+    $scriptv = "3.4"
 
     Write-Host "#### Identity Protection Licensing Script $scriptv #### " -ForegroundColor Blue
 
@@ -323,20 +331,21 @@
             else {}
 
             Write-Host "`n#### Counting Active AzureAD Users ####" -ForegroundColor Blue
-            $getAzureADusers = $null
-            $nativeAzureADusers = $null
-            $hybridAzureADUsers = $null
-            $userDecoded = $null
             $DateStr = (Get-Date).AddDays(-90)
             $getpast90days = $DateStr.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
 
             $getAzureADusers = Get-MgUser -All -select accountEnabled,OnPremisesImmutableId,UserPrincipalName -Filter "SignInActivity/lastSignInDateTime ge $getpast90days"
 
+            if ($getAzureADusers) {
             Write-host "`n- Combined Active AzureAD Users obtained for `"$AzureDomainName`". Splitting into Native vs Hybrid.." -ForegroundColor Green
+            }
+            else {
+                Write-host "`n- Unable to Retrieve combined Active AzureAD Users for `"$AzureDomainName`"." -ForegroundColor red
+            }
 
             $nativeAzureADusers = ($getAzureADusers | where-object { $_.OnPremisesImmutableId -eq $null -and $_.accountEnabled -eq $true }  | Select-Object UserPrincipalName).count
 
-            $hybridAzureADUsers = ($getAzureADusers | where-object { $_.OnPremisesImmutableId -and $_.accountEnabled -eq $true }).count
+            $global:hybridAzureADUsers = ($getAzureADusers | where-object { $_.OnPremisesImmutableId -and $_.accountEnabled -eq $true }).count
             $hybridAzureADUsersobjectGUID = $getAzureADusers | where-object { $_.OnPremisesImmutableId -and $_.accountEnabled -eq $true } | select-object OnPremisesImmutableId
 
             if ($nativeAzureADusers) {
@@ -599,7 +608,10 @@
         ### Calculate Total Active Users ###
     
         function get-totalUsers {
-    
+
+        $global:failures = $EntityCountTable | where-object {$_.'DC Count' -eq "N/A - Connect Error"}
+        $duplicateOnPremusers = ($onPremDelta | Sort-Object -Property objectGUID -Unique).count
+
         if ($capability -eq 'AzureADOnly' -AND $onPremDelta) {
             Write-host "`n- Found hybrid accounts in AzureAD. Adding number to table as estimate (recommend running from domain joined machine for accurate number)." -ForegroundColor yellow
             $estimatedOnPrem = ($onPremDelta | Select-Object -ExpandProperty objectGUID).count
@@ -614,14 +626,38 @@
 
             }
         }
+        elseif ($failures) {
+            if ($duplicateOnPremusers) {
+                if ($hybridAzureADUsers) {
+                Write-host "`n- Found hybrid accounts in AzureAD, will use these as the estimation for on-prem users." -ForegroundColor Yellow
+                }
+                else {}
+                $row = $ActiveUsersTable.NewRow()
+                $row.'Directory' = "On-Prem Active Directory Users (Estimated Due To Failures)"
+                $row.'IDP Licensing: Active Users' = $duplicateOnPremusers
+                $ActiveUsersTable.Rows.Add($row)
+                }
+        
+                else {
+                    $duplicateOnPremusers = "0"
+                    if ($capability -eq'AzureADOnly')
+                    {}
+                    else {
+                    Write-host "`n- No accounts with recent activity in both AzureAD and AD. Will not change totals." -ForegroundColor yellow
+                    }
+                }
+
+
+        }
         else {
 
-        $duplicateOnPremusers = ($onPremDelta | Sort-Object -Property objectGUID -Unique).count
-
         if ($duplicateOnPremusers) {
-        Write-host "`n- Found the same accounts with recent activity in both AzureAD and AD, will remove duplicates in final calculation." -ForegroundColor yellow
+            if ($hybridAzureADUsers) {
+                Write-host "`n- Found the same accounts with recent activity in both AzureAD and AD, will remove duplicates in final calculation." -ForegroundColor Yellow
+                }
+                else {}
         $row = $ActiveUsersTable.NewRow()
-        $row.'Directory' = "On Prem Active Directory Users"
+        $row.'Directory' = "On-Prem Active Directory Users"
         $row.'IDP Licensing: Active Users' = $duplicateOnPremusers
         $ActiveUsersTable.Rows.Add($row)
         }
@@ -664,7 +700,7 @@
         $row.'Total Entity Count' = $totalEntities
         $EntityCountTable.Rows.Add($row)
 
-        $global:finalEntityCountTable = $EntityCountTable | select Domain,'Successful Connection?', 'DC Count','DC','Total Entity Count'
+        $global:finalEntityCountTable = $EntityCountTable | select Domain, 'DC Count','DC','Total Entity Count'
     
         }
 
