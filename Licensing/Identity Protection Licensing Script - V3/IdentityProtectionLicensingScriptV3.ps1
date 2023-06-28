@@ -33,7 +33,7 @@
     Start-Transcript -path "$BundleLocation\cs_script_output.txt" | out-null
     $output = "$BundleLocation\cs_script_output.txt"
 
-    $scriptv = "3.2"
+    $scriptv = "3.3"
 
     Write-Host "#### Identity Protection Licensing Script $scriptv #### " -ForegroundColor Blue
 
@@ -98,9 +98,7 @@
             ### Create Table ###
     
             $global:ActiveUsersTable = New-Object system.Data.DataTable 'APIOutput'
-            $newcol = New-Object system.Data.DataColumn 'Domain',([string]); $ActiveUsersTable.columns.add($newcol)
-            $newcol = New-Object system.Data.DataColumn 'DC',([string]); $ActiveUsersTable.columns.add($newcol)
-            $newcol = New-Object system.Data.DataColumn 'Successful Connection?',([string]); $ActiveUsersTable.columns.add($newcol)
+            $newcol = New-Object system.Data.DataColumn 'Directory',([string]); $ActiveUsersTable.columns.add($newcol)
             $newcol = New-Object system.Data.DataColumn 'IDP Licensing: Active Users',([string]); $ActiveUsersTable.columns.add($newcol)
         }
 
@@ -124,9 +122,6 @@
             $newcol = New-Object system.Data.DataColumn 'Successful Connection?',([string]); $EntityCountTable.columns.add($newcol)
             $newcol = New-Object system.Data.DataColumn 'DC Count',([string]); $EntityCountTable.columns.add($newcol)
             $newcol = New-Object system.Data.DataColumn 'Total Entity Count',([string]); $EntityCountTable.columns.add($newcol)
-
-            
-    
         }
 
             function onPremDelta {
@@ -353,8 +348,7 @@
             }
     
             $row = $ActiveUsersTable.NewRow()
-            $row.'Domain' = $AzureDomainName + " (Native)"
-            $row.'DC'= "N/A - AzureAD"
+            $row.'Directory' = "AzureAD Tenant: " + $AzureDomainName + " (Cloud Native Accounts)"
             $row.'IDP Licensing: Active Users' = $nativeAzureADusers
             $ActiveUsersTable.Rows.Add($row)
 
@@ -469,10 +463,6 @@
     
             ### Update Table with Domain & DC Info ###
             foreach ($i in $DCList) {
-                $row = $ActiveUsersTable.NewRow()
-                $row.'Domain' = $($i."Domain")
-                $row.'DC'= $($i."Hostname")
-                $ActiveUsersTable.Rows.Add($row)
                 $row = $EntityCountTable.NewRow()
                 $row.'Domain' = $($i."Domain")
                 $row.'DC'= $($i."Hostname")
@@ -493,7 +483,6 @@
                 else {
                     Write-host "`n- Skipping `"$domain`". Unable to connect to domain controller `"$DC`" on Active Directory Web Services Port (TCP 9389)." -ForegroundColor Red
                 }
-            $ActiveUsersTable | where {$_.DC -eq $DC} | foreach {$_.'Successful Connection?' = "$DCconnection"}
             $EntityCountTable | where {$_.DC -eq $DC} | foreach {$_.'Successful Connection?' = "$DCconnection"}
             }
 
@@ -503,7 +492,7 @@
     
             try {
     
-                foreach ($row in $ActiveUsersTable | Where-Object {$_.'DC' -ne 'N/A - AzureAD'}) {
+                foreach ($row in $EntityCountTable | Where-Object {$_.'DC' -ne 'N/A - AzureAD'}) {
                     
                     $DC = $row.'DC'
                     $domain = $row.'Domain'
@@ -518,8 +507,7 @@
                     $ActiveUsers = ($getADUsers | select-object objectGUID | measure-object).count
 
                     if ($getADUsers) {
-                        Write-host "`n- Active AD Users obtained for `"$domain`" - ($ActiveUsers). Updating Table..." -ForegroundColor Green
-                        $ActiveUsersTable | where {$_.DC -eq $DC} | foreach {$_.'IDP Licensing: Active Users' = "$ActiveUsers"}
+                        Write-host "`n- Active AD Users obtained for `"$domain`" - ($ActiveUsers)." -ForegroundColor Green
                         foreach ($i in $getADUsers) {
                             $objectGUID = $i.objectGUID
                                 if ($objectGUID) {
@@ -537,7 +525,6 @@
                     }
                     else {
                         Write-host "`n- Skipping `"$domain`". Unable to connect to domain controller `"$DC`" on Active Directory Web Services Port (TCP 9389)." -ForegroundColor Red
-                        $ActiveUsersTable | where {$_.DC -eq $DC} | foreach {$_.'IDP Licensing: Active Users' = "N/A - Connect Error"}
                     }
     
                 }
@@ -618,8 +605,7 @@
             $estimatedOnPrem = ($onPremDelta | Select-Object -ExpandProperty objectGUID).count
             if ($estimatedOnPrem) {
                 $row = $ActiveUsersTable.NewRow()
-                $row.'Domain' = "Estimated On-Prem AD Users"
-                $row.'DC' = "N/A - Determined from AzureAD Hybrid User Count"
+                $row.'Directory' = "Estimated On-Prem AD Users"
                 $row.'IDP Licensing: Active Users' = $estimatedOnPrem
                 $ActiveUsersTable.Rows.Add($row)
             }
@@ -629,19 +615,13 @@
             }
         }
         else {
-        }
 
-        $totalActiveUsersRaw = ($ActiveUsersTable | where-object {$_.'IDP Licensing: Active Users' -ne "N/A - Connect Error"}  | Measure-Object 'IDP Licensing: Active Users' -Sum).Sum
-
-        $getDuplicates = $onPremDelta | Select-Object -ExpandProperty objectGUID
-        $duplicateOnPremusers = ($getDuplicates | group-object | Where-Object -FilterScript { $_.Count -gt 1 }).count
+        $duplicateOnPremusers = ($onPremDelta | Sort-Object -Property objectGUID -Unique).count
 
         if ($duplicateOnPremusers) {
-        Write-host "`n- Found the same accounts with recent activity in both AzureAD and AD, will deduct duplicates from total." -ForegroundColor yellow
+        Write-host "`n- Found the same accounts with recent activity in both AzureAD and AD, will remove duplicates in final calculation." -ForegroundColor yellow
         $row = $ActiveUsersTable.NewRow()
-        $row.'Domain' = "Duplicates (Will be deducted)"
-        $row.'DC' = "N/A"
-        $row.'Successful Connection?' = "N/A"
+        $row.'Directory' = "On Prem Active Directory Users"
         $row.'IDP Licensing: Active Users' = $duplicateOnPremusers
         $ActiveUsersTable.Rows.Add($row)
         }
@@ -655,13 +635,21 @@
             }
         }
 
-        $totalActiveUsers = $totalActiveUsersRaw - $duplicateOnPremusers
+        }
 
+        $totalActiveUsers = ($ActiveUsersTable | where-object {$_.'IDP Licensing: Active Users' -ne "N/A - Connect Error"}  | Measure-Object 'IDP Licensing: Active Users' -Sum).Sum
+
+        if ($totalActiveUsers) {
     
         $row = $ActiveUsersTable.NewRow()
-        $row.'Domain' = "TOTAL"
+        $row.'Directory' = "TOTAL"
         $row.'IDP Licensing: Active Users' = $totalActiveUsers
         $ActiveUsersTable.Rows.Add($row)
+
+        } 
+        else {
+            write-host "`n- Unable to Determine Active User Totals." -ForegroundColor Red
+        }
     
         }
 
@@ -676,7 +664,7 @@
         $row.'Total Entity Count' = $totalEntities
         $EntityCountTable.Rows.Add($row)
 
-        $global:finalEntityCountTable = $EntityCountTable | select Domain,'Successful Connection?', 'DC Count','Total Entity Count'
+        $global:finalEntityCountTable = $EntityCountTable | select Domain,'Successful Connection?', 'DC Count','DC','Total Entity Count'
     
         }
 
