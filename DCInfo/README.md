@@ -10,7 +10,7 @@
 + [Running the Script](#running-the-script)
 
 ## Overview
-This PowerShell script was developed to obtain all relevant domain controller information required to delpoy Falcon Identity Protection.
+This PowerShell script was developed to obtain all relevant domain controller information. This can be helpful when deploying Falcon Identity Protection.
 
 ## Prerequisites
 Operating System Requirements:
@@ -30,7 +30,7 @@ User Permissions:
 1. Login to the Falcon Console and navigate to Configuration → Response Scripts & Files → Scipts and select "Create Script". 
 2. Give the Script a Name (in this example DCInfo) and a Description and paste this script found [here](./CS-DCInfo.ps1).
 3. Under Permissions tick "RTR Active Responder and Administrator" and click "Save".
-4. Navigate to the machine from where you will run PSFalcon. This can be any machine you use that has connectivity to the Falcon Cloud. No connection to the domain or other DC's is necessary. Follow steps 1 and 2 under [Multiple Hosts](#multiple-hosts) in this article to install the PS Module and generate an OAuth token for the API. 
+4. Navigate to the machine from where you will run PSFalcon. This can be any machine you use that has connectivity to the Falcon Cloud. No connection to the domain or other DCs is necessary. Follow steps 1 and 2 under [Multiple Hosts](#multiple-hosts) in this article to install the PS Module and generate an OAuth token for the API. 
 5. Create a Host Group in Falcon containing all the domain controllers. To find the group ID, edit the group in the Falcon console and the ID is listed in the address bar at the end of the URL. Looks like: 
     * falcon.crowdstrike.com/hosts/groups-new/edit/***61592f432fd9447cb5bc2f9d0dd8dbe4***
 
@@ -54,9 +54,7 @@ We will use [PSFalcon](https://github.com/CrowdStrike/psfalcon) in this example 
 
 * Create a host group for all the DC's they wish to target. To find the group ID, edit the group in the Falcon console and the ID is listed in the address bar at the end of the URL. Looks like: 
 https://falcon.crowdstrike.com/hosts/groups-new/edit/12345f678fd9012cb3bc2f4d5dd6dbe7
-* Nominate a machine from where you will run the Powershell script. This doesnt have any special requirements, other than an admin account to install the PS module and accessibility to the Falcon API. 
-* Upload the desired DC sensor version you want to install/update as per point 2 for the single host deployment. 
-* Create a Falcon script for the installation file: https://falcon.crowdstrike.com/configuration/real-time-response/tools/scripts
+* Nominate a machine from where you will run the Powershell script. This doesnt have any special requirements, other than an admin account to install the PS module and accessibility to the Falcon API.
 
 ![Falcon-Console-API-Token-Settings](https://github.com/CrowdStrike/Identity-Protection/assets/94929838/e9ba9c58-ce14-449e-a407-325d32c09e19)
 
@@ -68,21 +66,11 @@ https://falcon.crowdstrike.com/hosts/groups-new/edit/12345f678fd9012cb3bc2f4d5dd
    Import-Module PSFalcon
    ```
 
-3. Authenticate with API Key by running:
+2. Authenticate with API Key by running:
    ```powershell
    Request-FalconToken
    ```
    Enter API ClientID and Secret when prompted. 
-
-3. Push the MSI onto all servers in the group (see above prerequisites for Group ID):
-   ```powershell
-   Invoke-FalconRTR put 'identity_protection_dc_sensor-6.34.19056.msi' -GroupId <<GroupID>> -Timeout 600 -QueueOffline $true
-   ```
-
-4. Run the installation/upgrade on all the servers in the group (see above prerequisites for Group ID):
-   ```powershell
-   Invoke-FalconRTR -Command runscript -CloudFile='InstallSensor' -GroupId <<GroupID>> -Timeout 600 -QueueOffline $true
-   ```
 
 ### Notes
 
