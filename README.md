@@ -7,7 +7,6 @@
 
 
 This repository contains scripts and utilities for working with Crowdstrike Identity Protection. 
-+ [Identity Protection Licensing Script](https://github.com/CrowdStrike/Identity-Protection/tree/main/Licensing)
 + [Identity Protection DC Info Script](https://github.com/CrowdStrike/Identity-Protection/tree/main/DCInfo)
 
 
